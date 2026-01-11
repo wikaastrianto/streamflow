@@ -39,7 +39,95 @@ function parseLocalDateTime(dateStr) {
   return new Date(year, month - 1, day, hours, minutes, seconds || 0);
 }
 
+function parseTimeString(timeStr) {
+  if (!timeStr) return { hours: 0, minutes: 0 };
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return { hours: hours || 0, minutes: minutes || 0 };
+}
+
+function buildDateFromTime(baseDate, timeStr) {
+  const { hours, minutes } = parseTimeString(timeStr);
+  const date = new Date(baseDate);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function getScheduleWindow(baseDate, schedule) {
+  const start = buildDateFromTime(baseDate, schedule.start_time);
+  const end = buildDateFromTime(baseDate, schedule.end_time);
+  if (end <= start) {
+    end.setDate(end.getDate() + 1);
+  }
+  return { start, end };
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function getNextScheduleFromSchedules(rotation, schedules, fromDate = new Date()) {
+  if (!schedules || schedules.length === 0) return null;
+
+  const sortedSchedules = [...schedules].sort((a, b) => a.start_time.localeCompare(b.start_time));
+  const repeatMode = rotation.repeat_mode || 'daily';
+  const now = new Date(fromDate);
+
+  const findNextWindowOnDate = (date, afterDate = null) => {
+    for (const schedule of sortedSchedules) {
+      const window = getScheduleWindow(date, schedule);
+      if (afterDate && window.start <= afterDate) {
+        continue;
+      }
+      return window;
+    }
+    return null;
+  };
+
+  if (repeatMode === 'weekly') {
+    const anchor = rotation.start_time ? parseLocalDateTime(rotation.start_time) : now;
+    const targetDay = anchor ? anchor.getDay() : now.getDay();
+    const candidate = new Date(now);
+    candidate.setHours(0, 0, 0, 0);
+    const offset = (targetDay - candidate.getDay() + 7) % 7;
+    candidate.setDate(candidate.getDate() + offset);
+    let window = findNextWindowOnDate(candidate, now);
+    if (!window) {
+      candidate.setDate(candidate.getDate() + 7);
+      window = findNextWindowOnDate(candidate);
+    }
+    return window;
+  }
+
+  if (repeatMode === 'monthly') {
+    const anchor = rotation.start_time ? parseLocalDateTime(rotation.start_time) : now;
+    const targetDay = anchor ? anchor.getDate() : now.getDate();
+    let candidate = new Date(now);
+    candidate.setHours(0, 0, 0, 0);
+    candidate.setDate(targetDay);
+    let window = findNextWindowOnDate(candidate, now);
+    if (!window) {
+      candidate = new Date(now.getFullYear(), now.getMonth() + 1, targetDay);
+      window = findNextWindowOnDate(candidate);
+    }
+    return window;
+  }
+
+  let candidate = new Date(now);
+  candidate.setHours(0, 0, 0, 0);
+  let window = findNextWindowOnDate(candidate, now);
+  if (!window) {
+    candidate.setDate(candidate.getDate() + 1);
+    window = findNextWindowOnDate(candidate);
+  }
+  return window;
+}
+
 function getNextSchedule(rotation, baseDate = null) {
+  if (!rotation.start_time || !rotation.end_time) {
+    return null;
+  }
   const originalStart = parseLocalDateTime(rotation.start_time);
   const originalEnd = parseLocalDateTime(rotation.end_time);
   
@@ -96,6 +184,20 @@ async function checkRotations() {
     const now = new Date();
 
     for (const rotation of activeRotations) {
+      const schedules = await Rotation.getSchedules(rotation.id);
+
+      if ((!rotation.start_time || !rotation.end_time) && schedules.length > 0) {
+        const nextSchedule = getNextScheduleFromSchedules(rotation, schedules, now);
+        if (nextSchedule) {
+          await Rotation.update(rotation.id, {
+            start_time: formatLocalDateTime(nextSchedule.start),
+            end_time: formatLocalDateTime(nextSchedule.end)
+          });
+          rotation.start_time = formatLocalDateTime(nextSchedule.start);
+          rotation.end_time = formatLocalDateTime(nextSchedule.end);
+        }
+      }
+
       if (!rotation.start_time || !rotation.end_time) continue;
 
       const items = await Rotation.getItemsByRotationId(rotation.id);
@@ -116,14 +218,21 @@ async function checkRotations() {
         }
 
         if (rotation.repeat_mode && rotation.repeat_mode !== 'none') {
-          const nextSchedule = getNextSchedule(rotation);
+          const nextSchedule = schedules.length > 0
+            ? getNextScheduleFromSchedules(rotation, schedules, now)
+            : getNextSchedule(rotation);
           
-          await Rotation.update(rotation.id, { 
-            current_index: 0,
-            start_time: formatLocalDateTime(nextSchedule.start),
-            end_time: formatLocalDateTime(nextSchedule.end)
-          });
-          console.log(`[RotationService] Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+          if (nextSchedule) {
+            await Rotation.update(rotation.id, { 
+              current_index: 0,
+              start_time: formatLocalDateTime(nextSchedule.start),
+              end_time: formatLocalDateTime(nextSchedule.end)
+            });
+            console.log(`[RotationService] Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+          } else {
+            await Rotation.update(rotation.id, { status: 'completed' });
+            console.log(`[RotationService] Rotation ${rotation.name} completed`);
+          }
         } else {
           await Rotation.update(rotation.id, { status: 'completed' });
           console.log(`[RotationService] Rotation ${rotation.name} completed`);
@@ -161,27 +270,41 @@ async function checkRotations() {
         
         if (nextIndex >= items.length) {
           if (rotation.repeat_mode && rotation.repeat_mode !== 'none') {
-            const nextSchedule = getNextSchedule(rotation);
+            const nextSchedule = schedules.length > 0
+              ? getNextScheduleFromSchedules(rotation, schedules, now)
+              : getNextSchedule(rotation);
             
-            await Rotation.update(rotation.id, { 
-              current_index: 0,
-              start_time: formatLocalDateTime(nextSchedule.start),
-              end_time: formatLocalDateTime(nextSchedule.end)
-            });
-            console.log(`[RotationService] All items completed. Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+            if (nextSchedule) {
+              await Rotation.update(rotation.id, { 
+                current_index: 0,
+                start_time: formatLocalDateTime(nextSchedule.start),
+                end_time: formatLocalDateTime(nextSchedule.end)
+              });
+              console.log(`[RotationService] All items completed. Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+            } else {
+              await Rotation.update(rotation.id, { status: 'completed' });
+              console.log(`[RotationService] All items completed. Rotation ${rotation.name} marked as completed`);
+            }
           } else {
             await Rotation.update(rotation.id, { status: 'completed' });
             console.log(`[RotationService] All items completed. Rotation ${rotation.name} marked as completed`);
           }
         } else {
-          const nextSchedule = getNextSchedule(rotation);
+          const nextSchedule = schedules.length > 0
+            ? getNextScheduleFromSchedules(rotation, schedules, now)
+            : getNextSchedule(rotation);
           
-          await Rotation.update(rotation.id, { 
-            current_index: nextIndex,
-            start_time: formatLocalDateTime(nextSchedule.start),
-            end_time: formatLocalDateTime(nextSchedule.end)
-          });
-          console.log(`[RotationService] Moving to next item (${nextIndex + 1}/${items.length}). Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+          if (nextSchedule) {
+            await Rotation.update(rotation.id, { 
+              current_index: nextIndex,
+              start_time: formatLocalDateTime(nextSchedule.start),
+              end_time: formatLocalDateTime(nextSchedule.end)
+            });
+            console.log(`[RotationService] Moving to next item (${nextIndex + 1}/${items.length}). Rotation ${rotation.name} rescheduled for ${formatLocalDateTime(nextSchedule.start)}`);
+          } else {
+            await Rotation.update(rotation.id, { status: 'completed' });
+            console.log(`[RotationService] Moving to next item (${nextIndex + 1}/${items.length}). Rotation ${rotation.name} marked as completed`);
+          }
         }
         continue;
       }
@@ -458,23 +581,17 @@ async function activateRotation(rotationId) {
     }
 
     const now = new Date();
-    const originalStart = parseLocalDateTime(rotation.start_time);
-    const originalEnd = parseLocalDateTime(rotation.end_time);
-    
-    let nextStart = new Date(now);
-    let nextEnd = new Date(now);
-    
-    nextStart.setHours(originalStart.getHours(), originalStart.getMinutes(), 0, 0);
-    nextEnd.setHours(originalEnd.getHours(), originalEnd.getMinutes(), 0, 0);
-    
-    if (nextEnd <= nextStart) {
-      nextEnd.setDate(nextEnd.getDate() + 1);
+    const schedules = await Rotation.getSchedules(rotationId);
+    const nextSchedule = schedules.length > 0
+      ? getNextScheduleFromSchedules(rotation, schedules, now)
+      : getNextSchedule(rotation);
+
+    if (!nextSchedule) {
+      return { success: false, error: 'No schedule available for rotation' };
     }
-    
-    if (now >= nextStart) {
-      nextStart.setDate(nextStart.getDate() + 1);
-      nextEnd.setDate(nextEnd.getDate() + 1);
-    }
+
+    const nextStart = nextSchedule.start;
+    const nextEnd = nextSchedule.end;
     
     const updateData = {
       status: 'active',

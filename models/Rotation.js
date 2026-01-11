@@ -79,7 +79,22 @@ class Rotation {
                 return reject(err);
               }
               rotation.items = items || [];
-              resolve(rotation);
+
+              db.all(
+                `SELECT id, rotation_id, order_index, start_time, end_time
+                 FROM rotation_schedules
+                 WHERE rotation_id = ?
+                 ORDER BY order_index ASC`,
+                [id],
+                (scheduleErr, schedules) => {
+                  if (scheduleErr) {
+                    console.error('Error finding rotation schedules:', scheduleErr.message);
+                    return reject(scheduleErr);
+                  }
+                  rotation.schedules = schedules || [];
+                  resolve(rotation);
+                }
+              );
             }
           );
         }
@@ -96,6 +111,12 @@ class Rotation {
                  LEFT JOIN videos v ON ri.video_id = v.id 
                  WHERE ri.rotation_id = r.id 
                  ORDER BY ri.order_index ASC LIMIT 1) as first_thumbnail,
+                (SELECT start_time FROM rotation_schedules 
+                 WHERE rotation_id = r.id 
+                 ORDER BY order_index ASC LIMIT 1) as schedule_start_time,
+                (SELECT end_time FROM rotation_schedules 
+                 WHERE rotation_id = r.id 
+                 ORDER BY order_index ASC LIMIT 1) as schedule_end_time,
                 yc.channel_name as youtube_channel_name,
                 yc.channel_thumbnail as youtube_channel_thumbnail,
                 yc.channel_id as youtube_channel_external_id
@@ -205,6 +226,43 @@ class Rotation {
           resolve({ id, ...itemData });
         }
       );
+    });
+  }
+
+  static addSchedule(scheduleData) {
+    const id = uuidv4();
+    const {
+      rotation_id,
+      order_index,
+      start_time,
+      end_time
+    } = scheduleData;
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO rotation_schedules (id, rotation_id, order_index, start_time, end_time)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, rotation_id, order_index, start_time, end_time],
+        function(err) {
+          if (err) {
+            console.error('Error adding rotation schedule:', err.message);
+            return reject(err);
+          }
+          resolve({ id, ...scheduleData });
+        }
+      );
+    });
+  }
+
+  static deleteSchedules(rotationId) {
+    return new Promise((resolve, reject) => {
+      db.run('DELETE FROM rotation_schedules WHERE rotation_id = ?', [rotationId], function(err) {
+        if (err) {
+          console.error('Error deleting rotation schedules:', err.message);
+          return reject(err);
+        }
+        resolve({ success: true, deleted: this.changes > 0 });
+      });
     });
   }
 
@@ -323,6 +381,25 @@ class Rotation {
         (err, rows) => {
           if (err) {
             console.error('Error getting rotation items:', err.message);
+            return reject(err);
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  static getSchedules(rotationId) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, rotation_id, order_index, start_time, end_time
+         FROM rotation_schedules
+         WHERE rotation_id = ?
+         ORDER BY order_index ASC`,
+        [rotationId],
+        (err, rows) => {
+          if (err) {
+            console.error('Error getting rotation schedules:', err.message);
             return reject(err);
           }
           resolve(rows || []);

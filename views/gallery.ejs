@@ -39,6 +39,10 @@ function formatDuration(seconds) {
       <i class="ti ti-upload"></i>
       <span>Upload Media</span>
     </button>
+    <button onclick="openFolderModal()" class="flex items-center gap-2 bg-dark-700 border border-gray-600 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors">
+      <i class="ti ti-folder-plus"></i>
+      <span>Create Folder</span>
+    </button>
     <div class="relative">
       <button onclick="toggleCloudDropdown()" class="flex items-center gap-2 bg-dark-700 border border-gray-600 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors">
         <i class="ti ti-cloud-download"></i>
@@ -80,6 +84,13 @@ function formatDuration(seconds) {
         <option value="video">Video</option>
         <option value="audio">Audio</option>
       </select>
+      <select id="folderFilter" class="bg-dark-700 border border-gray-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" data-folder-select="filter">
+        <option value="all">All Folders</option>
+        <option value="unassigned">Unsorted</option>
+        <% (folders || []).forEach(function(folder) { %>
+          <option value="<%= folder.id %>"><%= folder.name %></option>
+        <% }); %>
+      </select>
       <select id="sortSelect" class="bg-dark-700 border border-gray-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary">
         <option value="newest">Newest</option>
         <option value="oldest">Oldest</option>
@@ -107,7 +118,7 @@ function formatDuration(seconds) {
         const mediaType = isAudio ? 'audio' : 'video';
       %>
       <div class="file-item group bg-dark-700 rounded-lg overflow-hidden border border-transparent hover:border-gray-600 hover:bg-dark-600 transition-all cursor-pointer"
-        data-id="<%= video.id %>" data-title="<%= video.title %>" data-date="<%= video.upload_date %>" data-size="<%= video.file_size %>" data-type="<%= mediaType %>"
+        data-id="<%= video.id %>" data-title="<%= video.title %>" data-date="<%= video.upload_date %>" data-size="<%= video.file_size %>" data-type="<%= mediaType %>" data-folder-id="<%= video.folder_id || '' %>"
         onclick="playMedia('<%= video.id %>', '<%= video.title %>', '<%= mediaType %>')">
         <div class="aspect-video relative overflow-hidden bg-dark-900">
           <% if (isAudio) { %>
@@ -135,6 +146,10 @@ function formatDuration(seconds) {
         </div>
         <div class="p-3">
           <h3 class="font-medium text-sm truncate mb-1"><%= video.title %></h3>
+          <p class="text-xs text-gray-500 truncate mb-2 flex items-center gap-1">
+            <i class="ti ti-folder text-xs"></i>
+            <span><%= video.folder_name || 'Unsorted' %></span>
+          </p>
           <div class="flex items-center justify-between">
             <span class="text-xs text-gray-400"><%= formatFileSize(video.file_size) %></span>
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -169,7 +184,7 @@ function formatDuration(seconds) {
               const mediaType = isAudio ? 'audio' : 'video';
             %>
             <tr class="file-item-row group hover:bg-dark-700 transition-colors cursor-pointer"
-              data-id="<%= video.id %>" data-title="<%= video.title %>" data-date="<%= video.upload_date %>" data-size="<%= video.file_size %>" data-type="<%= mediaType %>"
+              data-id="<%= video.id %>" data-title="<%= video.title %>" data-date="<%= video.upload_date %>" data-size="<%= video.file_size %>" data-type="<%= mediaType %>" data-folder-id="<%= video.folder_id || '' %>"
               onclick="playMedia('<%= video.id %>', '<%= video.title %>', '<%= mediaType %>')">
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
@@ -180,8 +195,12 @@ function formatDuration(seconds) {
                     <img src="<%= video.thumbnail_path %>" alt="" class="w-full h-full object-cover">
                     <% } %>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-medium text-sm truncate max-w-xs"><%= video.title %></span>
+                  <div>
+                    <span class="font-medium text-sm truncate max-w-xs block"><%= video.title %></span>
+                    <span class="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <i class="ti ti-folder text-xs"></i>
+                      <span class="truncate max-w-xs"><%= video.folder_name || 'Unsorted' %></span>
+                    </span>
                   </div>
                 </div>
               </td>
@@ -250,6 +269,15 @@ function formatDuration(seconds) {
         <form id="videoUploadForm" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="uploadType" id="uploadType" value="video">
+          <div class="mb-4">
+            <label for="uploadFolderSelect" class="block text-sm font-medium text-gray-300 mb-2">Folder</label>
+            <select id="uploadFolderSelect" class="w-full bg-dark-700 border border-gray-600 text-white px-3 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary" data-folder-select="upload">
+              <option value="">Unsorted</option>
+              <% (folders || []).forEach(function(folder) { %>
+                <option value="<%= folder.id %>"><%= folder.name %></option>
+              <% }); %>
+            </select>
+          </div>
           <div id="uploadDropzone" class="border-2 border-dashed border-gray-600 hover:border-primary rounded-lg py-10 px-6 text-center transition-all cursor-pointer" data-state="idle">
             <div class="flex flex-col items-center justify-center space-y-3">
               <div class="w-14 h-14 rounded-full bg-dark-700 flex items-center justify-center">
@@ -310,6 +338,30 @@ function formatDuration(seconds) {
   </div>
 </div>
 
+<div id="folderModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden modal-overlay overflow-y-auto">
+  <div class="flex min-h-screen items-center justify-center p-4">
+    <div class="bg-dark-800 rounded-lg shadow-xl w-full max-w-md">
+      <div class="flex items-center justify-between p-4 border-b border-gray-700">
+        <h3 class="text-lg font-semibold">Create Folder</h3>
+        <button onclick="closeFolderModal()" class="text-gray-400 hover:text-white">
+          <i class="ti ti-x text-xl"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4">
+        <div>
+          <label for="folderNameInput" class="block text-sm font-medium text-gray-300 mb-2">Folder Name</label>
+          <input type="text" id="folderNameInput" placeholder="Enter folder name..."
+            class="w-full bg-dark-700 border border-gray-600 text-white px-4 py-2 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary">
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 p-4 border-t border-gray-700">
+        <button onclick="closeFolderModal()" class="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-gray-300 rounded-lg transition-colors">Cancel</button>
+        <button onclick="createFolder()" class="px-4 py-2 bg-primary hover:bg-blue-600 text-white rounded-lg transition-colors">Create</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="cloudImportModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden modal-overlay overflow-y-auto">
   <div class="flex min-h-screen items-center justify-center p-4">
     <div id="cloudModalContent" class="bg-dark-800 rounded-lg shadow-xl w-full max-w-md">
@@ -335,6 +387,7 @@ let currentView = 'grid';
 let currentUploadType = 'video';
 let userDiskUsage = 0;
 let userDiskLimit = 0;
+let availableFolders = <%- JSON.stringify(folders || []) %>;
 
 async function loadDiskUsage() {
   try {
@@ -448,6 +501,77 @@ function showToast(type, message) {
   toastMessage.textContent = message;
   toast.classList.remove('hidden');
   setTimeout(() => toast.classList.add('hidden'), 3000);
+}
+
+function refreshFolderSelects() {
+  const selects = document.querySelectorAll('[data-folder-select]');
+  selects.forEach(select => {
+    const currentValue = select.value;
+    const type = select.dataset.folderSelect;
+    let options = '';
+    if (type === 'filter') {
+      options += '<option value="all">All Folders</option>';
+      options += '<option value="unassigned">Unsorted</option>';
+    } else {
+      options += '<option value="">Unsorted</option>';
+    }
+    options += availableFolders.map(folder => `<option value="${folder.id}">${folder.name}</option>`).join('');
+    select.innerHTML = options;
+    if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) {
+      select.value = currentValue;
+    }
+  });
+}
+
+function openFolderModal() {
+  const modal = document.getElementById('folderModal');
+  const input = document.getElementById('folderNameInput');
+  if (input) input.value = '';
+  document.body.style.overflow = 'hidden';
+  modal.classList.remove('hidden');
+  requestAnimationFrame(() => modal.classList.add('active'));
+  setTimeout(() => input?.focus(), 100);
+}
+
+function closeFolderModal() {
+  const modal = document.getElementById('folderModal');
+  modal.classList.remove('active');
+  setTimeout(() => {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }, 200);
+}
+
+async function createFolder() {
+  const input = document.getElementById('folderNameInput');
+  const name = input?.value?.trim();
+  if (!name) {
+    showToast('error', 'Please enter a folder name');
+    return;
+  }
+  try {
+    const response = await fetch('/api/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    const data = await response.json();
+    if (data.success) {
+      availableFolders.unshift(data.folder);
+      refreshFolderSelects();
+      closeFolderModal();
+      showToast('success', 'Folder created successfully');
+    } else {
+      showToast('error', data.error || 'Failed to create folder');
+    }
+  } catch (error) {
+    console.error('Error creating folder:', error);
+    showToast('error', 'Failed to create folder');
+  }
+}
+
+function getSelectedFolderId() {
+  return document.getElementById('uploadFolderSelect')?.value || '';
 }
 
 document.getElementById('gridViewBtn').addEventListener('click', function() {
@@ -1009,6 +1133,8 @@ document.addEventListener('DOMContentLoaded', function() {
     return new Promise((resolve) => {
       const formData = new FormData();
       formData.append('video', file);
+      const folderId = getSelectedFolderId();
+      if (folderId) formData.append('folderId', folderId);
       const xhr = new XMLHttpRequest();
       xhr.timeout = 30 * 60 * 1000;
       xhr.upload.addEventListener('progress', (e) => {
@@ -1037,6 +1163,8 @@ document.addEventListener('DOMContentLoaded', function() {
     return new Promise((resolve) => {
       const formData = new FormData();
       formData.append('audio', file);
+      const folderId = getSelectedFolderId();
+      if (folderId) formData.append('folderId', folderId);
       const xhr = new XMLHttpRequest();
       xhr.timeout = 60 * 60 * 1000;
       xhr.upload.addEventListener('progress', (e) => {
@@ -1064,10 +1192,11 @@ document.addEventListener('DOMContentLoaded', function() {
   async function uploadChunked(file, index, total) {
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     try {
+      const folderId = getSelectedFolderId();
       const init = await fetch('/api/videos/chunk/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, fileSize: file.size, totalChunks })
+        body: JSON.stringify({ filename: file.name, fileSize: file.size, totalChunks, folderId })
       });
       const initData = await init.json();
       if (!initData.success) throw new Error(initData.error);
@@ -1163,7 +1292,8 @@ document.addEventListener('DOMContentLoaded', function() {
       title: item.dataset.title || '',
       date: new Date(item.dataset.date || 0).getTime(),
       size: parseInt(item.dataset.size) || 0,
-      type: item.dataset.type || 'video'
+      type: item.dataset.type || 'video',
+      folderId: item.dataset.folderId || ''
     };
   }
 
@@ -1172,12 +1302,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const sort = sortSelect ? sortSelect.value : 'newest';
     const typeFilter = document.getElementById('typeFilter');
     const type = typeFilter ? typeFilter.value : 'all';
+    const folderFilter = document.getElementById('folderFilter');
+    const folderValue = folderFilter ? folderFilter.value : 'all';
     
     const filterFn = (item) => {
       const data = getItemData(item);
       const matchesSearch = data.title.toLowerCase().includes(search);
       const matchesType = type === 'all' || data.type === type;
-      return matchesSearch && matchesType;
+      const matchesFolder = folderValue === 'all'
+        || (folderValue === 'unassigned' && !data.folderId)
+        || (folderValue !== 'unassigned' && data.folderId === folderValue);
+      return matchesSearch && matchesType && matchesFolder;
     };
 
     const sortFn = (a, b) => {
@@ -1267,6 +1402,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (sortSelect) sortSelect.addEventListener('change', filterAndSort);
   const typeFilter = document.getElementById('typeFilter');
   if (typeFilter) typeFilter.addEventListener('change', filterAndSort);
+  const folderFilter = document.getElementById('folderFilter');
+  if (folderFilter) folderFilter.addEventListener('change', filterAndSort);
   
   if (gridItems.length > 0) filterAndSort();
 });
