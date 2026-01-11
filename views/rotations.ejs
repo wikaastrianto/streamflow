@@ -82,19 +82,12 @@
               <span class="text-[10px] <%= hasActive ? 'text-green-400 font-semibold' : 'text-green-500' %>"><%= primarySlot[1] %></span>
             <% } %>
             <% if (totalSlots > 1) { %>
+              <%
+                const tooltipSlots = slots.map(slot => `${slot[0]} → ${slot[1]}`).join(' | ');
+              %>
               <span class="text-[10px] text-gray-500">•</span>
-              <span class="schedule-more text-[10px] text-blue-300 relative">
+              <span class="schedule-more text-[10px] text-blue-300" title="<%= tooltipSlots %>">
                 +<%= totalSlots - 1 %> more
-                <span class="schedule-popover">
-                  <% slots.forEach((slot) => { %>
-                    <% const isActive = hasActive && slot[0] === activeStart && slot[1] === activeEnd; %>
-                    <div class="schedule-popover-row <%= isActive ? 'schedule-popover-active' : '' %>">
-                      <span class="text-yellow-500"><%= slot[0] %></span>
-                      <span class="text-gray-500">→</span>
-                      <span class="text-green-500"><%= slot[1] %></span>
-                    </div>
-                  <% }); %>
-                </span>
               </span>
             <% } %>
             <% if (rotation.repeat_mode === 'daily') { %>
@@ -228,18 +221,11 @@
               <div class="text-sm text-gray-400">--</div>
             <% } %>
             <% if (tableTotal > 1) { %>
-              <div class="schedule-more text-xs text-blue-300 relative inline-flex items-center gap-1 mt-1">
+              <%
+                const tableTooltipSlots = tableSlots.map(slot => `${slot[0]} → ${slot[1]}`).join(' | ');
+              %>
+              <div class="schedule-more text-xs text-blue-300 inline-flex items-center gap-1 mt-1" title="<%= tableTooltipSlots %>">
                 <span>+<%= tableTotal - 1 %> more</span>
-                <span class="schedule-popover">
-                  <% tableSlots.forEach((slot) => { %>
-                    <% const isActive = tableHasActive && slot[0] === tableActiveStart && slot[1] === tableActiveEnd; %>
-                    <div class="schedule-popover-row <%= isActive ? 'schedule-popover-active' : '' %>">
-                      <span class="text-yellow-500"><%= slot[0] %></span>
-                      <span class="text-gray-500">→</span>
-                      <span class="text-green-500"><%= slot[1] %></span>
-                    </div>
-                  <% }); %>
-                </span>
               </div>
             <% } %>
           </td>
@@ -507,38 +493,7 @@
   border-radius: 2px;
 }
 .schedule-more {
-  cursor: pointer;
-}
-.schedule-popover {
-  position: absolute;
-  top: 1.2rem;
-  left: 0;
-  z-index: 40;
-  min-width: 140px;
-  padding: 6px 8px;
-  background: #111827;
-  border: 1px solid rgba(55, 65, 81, 0.8);
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(4px);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
-}
-.schedule-more:hover .schedule-popover {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-.schedule-popover-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  padding: 2px 0;
-}
-.schedule-popover-active {
-  font-weight: 600;
+  cursor: help;
 }
 </style>
 
