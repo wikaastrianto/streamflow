@@ -68,11 +68,27 @@
             <span class="text-[10px] text-gray-400"><%= rotation.item_count %> items</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5">
-            <% if (rotation.start_time && rotation.end_time) { %>
-            <span class="text-[10px] text-yellow-500"><%= new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></span>
-            <span class="text-[10px] text-gray-500">→</span>
-            <span class="text-[10px] text-green-500"><%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></span>
-            <span class="text-gray-600 text-[10px]">•</span>
+            <%
+              const slots = rotation.schedule_slots ? rotation.schedule_slots.split(',').map(slot => slot.split('|')) : [];
+              const activeStart = rotation.start_time ? new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const activeEnd = rotation.end_time ? new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const hasActive = activeStart && activeEnd;
+              const primarySlot = hasActive ? [activeStart, activeEnd] : (slots[0] || (rotation.schedule_start_time && rotation.schedule_end_time ? [rotation.schedule_start_time, rotation.schedule_end_time] : null));
+              const totalSlots = slots.length;
+            %>
+            <% if (primarySlot) { %>
+              <span class="text-[10px] <%= hasActive ? 'text-yellow-400 font-semibold' : 'text-yellow-500' %>"><%= primarySlot[0] %></span>
+              <span class="text-[10px] text-gray-500">→</span>
+              <span class="text-[10px] <%= hasActive ? 'text-green-400 font-semibold' : 'text-green-500' %>"><%= primarySlot[1] %></span>
+            <% } %>
+            <% if (totalSlots > 1) { %>
+              <%
+                const tooltipSlots = slots.map(slot => `${slot[0]} → ${slot[1]}`).join(' | ');
+              %>
+              <span class="text-[10px] text-gray-500">•</span>
+              <span class="schedule-more text-[10px] text-blue-300" title="<%= tooltipSlots %>">
+                +<%= totalSlots - 1 %> more
+              </span>
             <% } %>
             <% if (rotation.repeat_mode === 'daily') { %>
             <span class="text-[10px] text-blue-400">Daily</span>
@@ -133,7 +149,7 @@
   <% }); %>
 </div>
 <div class="hidden md:block bg-gray-800 rounded-lg shadow-md overflow-hidden">
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto overflow-y-visible">
     <table class="min-w-full">
       <thead class="bg-gray-700 sticky top-0 z-9">
         <tr>
@@ -190,11 +206,27 @@
             <% } %>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
-            <% if (rotation.start_time && rotation.end_time) { %>
-              <div class="text-xs text-yellow-500 font-medium">Start: <%= new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
-              <div class="text-xs text-green-500 font-medium">End: <%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
+            <%
+              const tableSlots = rotation.schedule_slots ? rotation.schedule_slots.split(',').map(slot => slot.split('|')) : [];
+              const tableActiveStart = rotation.start_time ? new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const tableActiveEnd = rotation.end_time ? new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const tableHasActive = tableActiveStart && tableActiveEnd;
+              const tablePrimary = tableHasActive ? [tableActiveStart, tableActiveEnd] : (tableSlots[0] || (rotation.schedule_start_time && rotation.schedule_end_time ? [rotation.schedule_start_time, rotation.schedule_end_time] : null));
+              const tableTotal = tableSlots.length;
+            %>
+            <% if (tablePrimary) { %>
+              <div class="text-xs text-yellow-500 font-medium">Start: <%= tablePrimary[0] %></div>
+              <div class="text-xs text-green-500 font-medium">End: <%= tablePrimary[1] %></div>
             <% } else { %>
               <div class="text-sm text-gray-400">--</div>
+            <% } %>
+            <% if (tableTotal > 1) { %>
+              <%
+                const tableTooltipSlots = tableSlots.map(slot => `${slot[0]} → ${slot[1]}`).join(' | ');
+              %>
+              <div class="schedule-more text-xs text-blue-300 inline-flex items-center gap-1 mt-1" title="<%= tableTooltipSlots %>">
+                <span>+<%= tableTotal - 1 %> more</span>
+              </div>
             <% } %>
           </td>
           <td class="px-6 py-4">
@@ -339,15 +371,14 @@
             </span>
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="text-sm font-medium text-white block mb-2">Start Time</label>
-              <input type="time" id="rotationStartTime" name="rotationStartTime" class="w-full px-4 py-2.5 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary [color-scheme:dark]" required>
-              <p class="text-xs text-gray-500 mt-1">Daily start time for the rotation</p>
-            </div>
-            <div>
-              <label class="text-sm font-medium text-white block mb-2">End Time <span id="rotationDurationBadge" class="bg-gray-700 text-xs text-gray-300 px-2 py-0.5 rounded ml-2">Duration: 00:00</span></label>
-              <input type="time" id="rotationEndTime" name="rotationEndTime" class="w-full px-4 py-2.5 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary [color-scheme:dark]" required>
-              <p class="text-xs text-gray-500 mt-1">Daily end time for the rotation</p>
+            <div class="md:col-span-2">
+              <label class="text-sm font-medium text-white block mb-2">Schedule Slots</label>
+              <div id="rotationScheduleList" class="space-y-3"></div>
+              <button type="button" onclick="addRotationSchedule()" class="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 border-2 border-dashed border-gray-600 hover:border-gray-500 text-gray-400 hover:text-white rounded-lg transition-colors">
+                <i class="ti ti-plus text-sm"></i>
+                Add Time Slot
+              </button>
+              <p class="text-xs text-gray-500 mt-2">Tambahkan beberapa jadwal untuk live lebih dari satu kali dalam sehari.</p>
             </div>
             <div>
               <label class="text-sm font-medium text-white block mb-2">Repeat</label>
@@ -433,6 +464,9 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
 }
+.overflow-x-auto {
+  overflow-y: visible;
+}
 .modal-overlay::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar,
 .overflow-x-auto::-webkit-scrollbar {
@@ -458,6 +492,9 @@
   padding: 0 2px;
   border-radius: 2px;
 }
+.schedule-more {
+  cursor: help;
+}
 </style>
 
 <script>
@@ -481,35 +518,84 @@ function updateRotationServerTime() {
 updateRotationServerTime();
 setInterval(updateRotationServerTime, 1000);
 
-function calculateDuration() {
-  const startTime = document.getElementById('rotationStartTime').value;
-  const endTime = document.getElementById('rotationEndTime').value;
-  const badge = document.getElementById('rotationDurationBadge');
-  
+function calculateScheduleDuration(row) {
+  const startInput = row.querySelector('.rotation-schedule-start');
+  const endInput = row.querySelector('.rotation-schedule-end');
+  const badge = row.querySelector('.rotation-schedule-duration');
+  if (!startInput || !endInput || !badge) return;
+
+  const startTime = startInput.value;
+  const endTime = endInput.value;
   if (!startTime || !endTime) {
     badge.textContent = 'Duration: 00:00';
     return;
   }
-  
+
   const [startH, startM] = startTime.split(':').map(Number);
   const [endH, endM] = endTime.split(':').map(Number);
-  
+
   let startMinutes = startH * 60 + startM;
   let endMinutes = endH * 60 + endM;
-  
+
   if (endMinutes <= startMinutes) {
     endMinutes += 24 * 60;
   }
-  
+
   const diffMinutes = endMinutes - startMinutes;
   const hours = Math.floor(diffMinutes / 60);
   const minutes = diffMinutes % 60;
-  
+
   badge.textContent = `Duration: ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
-document.getElementById('rotationStartTime').addEventListener('change', calculateDuration);
-document.getElementById('rotationEndTime').addEventListener('change', calculateDuration);
+function addRotationSchedule(startTime = '', endTime = '') {
+  const list = document.getElementById('rotationScheduleList');
+  if (!list) return;
+  const index = list.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'rotation-schedule-row grid grid-cols-1 md:grid-cols-3 gap-3 bg-gray-900 border border-gray-700 rounded-lg p-3';
+  row.innerHTML = `
+    <div>
+      <label class="text-xs text-gray-400 block mb-1">Start Time</label>
+      <input type="time" class="rotation-schedule-start w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary [color-scheme:dark]" value="${startTime}">
+    </div>
+    <div>
+      <label class="text-xs text-gray-400 block mb-1">End Time <span class="rotation-schedule-duration bg-gray-700 text-xs text-gray-300 px-2 py-0.5 rounded ml-2">Duration: 00:00</span></label>
+      <input type="time" class="rotation-schedule-end w-full px-3 py-2 bg-dark-700 border border-gray-600 rounded-lg focus:border-primary focus:ring-1 focus:ring-primary [color-scheme:dark]" value="${endTime}">
+    </div>
+    <div class="flex items-end justify-between gap-2">
+      <span class="text-xs text-gray-500">Slot #${index}</span>
+      <button type="button" class="rotation-schedule-remove px-2.5 py-2 text-xs text-red-300 hover:text-red-200 hover:bg-red-500/10 rounded transition-colors">
+        <i class="ti ti-trash"></i>
+      </button>
+    </div>
+  `;
+
+  const startInput = row.querySelector('.rotation-schedule-start');
+  const endInput = row.querySelector('.rotation-schedule-end');
+  startInput.addEventListener('change', () => calculateScheduleDuration(row));
+  endInput.addEventListener('change', () => calculateScheduleDuration(row));
+  row.querySelector('.rotation-schedule-remove').addEventListener('click', () => {
+    if (list.children.length > 1) {
+      row.remove();
+      reindexScheduleSlots();
+    } else {
+      showToast('error', 'At least one schedule slot is required');
+    }
+  });
+
+  list.appendChild(row);
+  calculateScheduleDuration(row);
+}
+
+function reindexScheduleSlots() {
+  const list = document.getElementById('rotationScheduleList');
+  if (!list) return;
+  Array.from(list.children).forEach((row, idx) => {
+    const label = row.querySelector('span.text-xs');
+    if (label) label.textContent = `Slot #${idx + 1}`;
+  });
+}
 
 function showToast(type, message) {
   const toast = document.getElementById('toast');
@@ -543,7 +629,6 @@ function openCreateRotationModal() {
   document.getElementById('rotationModalTitle').textContent = 'Create New Rotation';
   document.getElementById('rotationForm').reset();
   document.getElementById('rotationId').value = '';
-  document.getElementById('rotationDurationBadge').textContent = 'Duration: 00:00';
   
   document.getElementById('repeatMode').value = 'daily';
   
@@ -556,6 +641,11 @@ function openCreateRotationModal() {
   document.getElementById('rotationItemsContainer').innerHTML = '';
   rotationItemCount = 0;
   addRotationItem();
+  const scheduleList = document.getElementById('rotationScheduleList');
+  if (scheduleList) {
+    scheduleList.innerHTML = '';
+    addRotationSchedule();
+  }
   document.body.style.overflow = 'hidden';
   modal.classList.remove('hidden');
   requestAnimationFrame(() => {
@@ -923,17 +1013,11 @@ async function saveRotation() {
   const rotationId = document.getElementById('rotationId').value;
   const name = document.getElementById('rotationName').value;
   const repeatMode = document.getElementById('repeatMode').value;
-  const startTime = document.getElementById('rotationStartTime').value;
-  const endTime = document.getElementById('rotationEndTime').value;
   const globalPrivacy = document.getElementById('globalPrivacy').value;
   const globalCategory = document.getElementById('globalCategory').value;
   
   if (!name) {
     showToast('error', 'Please enter rotation name');
-    return;
-  }
-  if (!startTime || !endTime) {
-    showToast('error', 'Please set start and end time');
     return;
   }
   
@@ -949,28 +1033,25 @@ async function saveRotation() {
     saveBtn.classList.remove('opacity-70', 'cursor-not-allowed');
   }
   
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const today = `${year}-${month}-${day}`;
-  
-  const startDateTime = new Date(`${today}T${startTime}:00`);
-  const endDateTime = new Date(`${today}T${endTime}:00`);
-  
-  const formatLocalDateTime = (date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    const h = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
-    const s = String(date.getSeconds()).padStart(2, '0');
-    return `${y}-${m}-${d}T${h}:${min}:${s}`;
-  };
-  
-  const startDateTimeStr = formatLocalDateTime(startDateTime);
-  const endDateTimeStr = formatLocalDateTime(endDateTime);
-  
+  const schedules = [];
+  document.querySelectorAll('.rotation-schedule-row').forEach((row, index) => {
+    const start = row.querySelector('.rotation-schedule-start')?.value;
+    const end = row.querySelector('.rotation-schedule-end')?.value;
+    if (start && end) {
+      schedules.push({
+        order_index: index,
+        start_time: start,
+        end_time: end
+      });
+    }
+  });
+
+  if (schedules.length === 0) {
+    showToast('error', 'Please add at least one schedule slot');
+    resetSaveBtn();
+    return;
+  }
+
   const items = [];
   const itemElements = document.querySelectorAll('.rotation-item');
   const formData = new FormData();
@@ -1024,8 +1105,7 @@ async function saveRotation() {
   
   formData.append('name', name);
   formData.append('repeat_mode', repeatMode);
-  formData.append('start_time', startDateTimeStr);
-  formData.append('end_time', endDateTimeStr);
+  formData.append('schedules', JSON.stringify(schedules));
   formData.append('youtube_channel_id', youtubeChannelId);
   formData.append('items', JSON.stringify(items));
   
@@ -1070,17 +1150,22 @@ async function editRotation(id) {
       document.getElementById('rotationId').value = rotation.id;
       document.getElementById('rotationName').value = rotation.name;
       document.getElementById('repeatMode').value = rotation.repeat_mode || 'daily';
-      
-      if (rotation.start_time) {
-        const startTime = new Date(rotation.start_time).toTimeString().slice(0, 5);
-        document.getElementById('rotationStartTime').value = startTime;
+
+      const scheduleList = document.getElementById('rotationScheduleList');
+      if (scheduleList) {
+        scheduleList.innerHTML = '';
+        if (rotation.schedules && rotation.schedules.length > 0) {
+          rotation.schedules.forEach(schedule => {
+            addRotationSchedule(schedule.start_time, schedule.end_time);
+          });
+        } else if (rotation.start_time && rotation.end_time) {
+          const startTime = new Date(rotation.start_time).toTimeString().slice(0, 5);
+          const endTime = new Date(rotation.end_time).toTimeString().slice(0, 5);
+          addRotationSchedule(startTime, endTime);
+        } else {
+          addRotationSchedule();
+        }
       }
-      if (rotation.end_time) {
-        const endTime = new Date(rotation.end_time).toTimeString().slice(0, 5);
-        document.getElementById('rotationEndTime').value = endTime;
-      }
-      
-      calculateDuration();
       
       if (rotation.items && rotation.items.length > 0) {
         document.getElementById('globalPrivacy').value = rotation.items[0].privacy || 'unlisted';
