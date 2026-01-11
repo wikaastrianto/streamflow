@@ -28,6 +28,15 @@ function createTables() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )`);
       
+      db.run(`CREATE TABLE IF NOT EXISTS media_folders (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`);
+
       db.run(`CREATE TABLE IF NOT EXISTS videos (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -40,10 +49,12 @@ function createTables() {
         bitrate INTEGER,
         fps TEXT,
         user_id TEXT,
+        folder_id TEXT,
         upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (folder_id) REFERENCES media_folders(id) ON DELETE SET NULL
       )`);
       
       db.run(`CREATE TABLE IF NOT EXISTS streams (
@@ -260,6 +271,16 @@ function createTables() {
         FOREIGN KEY (video_id) REFERENCES videos(id)
       )`);
 
+      db.run(`CREATE TABLE IF NOT EXISTS rotation_schedules (
+        id TEXT PRIMARY KEY,
+        rotation_id TEXT NOT NULL,
+        order_index INTEGER NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (rotation_id) REFERENCES stream_rotations(id) ON DELETE CASCADE
+      )`);
+
       // Add start_time, end_time, and repeat_mode columns to stream_rotations table
       db.run(`ALTER TABLE stream_rotations ADD COLUMN start_time TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {
@@ -325,6 +346,12 @@ function createTables() {
       db.run(`ALTER TABLE videos ADD COLUMN audio_codec TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {
           console.error('Error adding audio_codec column to videos:', err.message);
+        }
+      });
+
+      db.run(`ALTER TABLE videos ADD COLUMN folder_id TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column name')) {
+          console.error('Error adding folder_id column to videos:', err.message);
         }
       });
 

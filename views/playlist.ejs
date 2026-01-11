@@ -188,6 +188,19 @@
                         class="w-full bg-dark-800 text-white pl-8 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-gray-700">
                       <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     </div>
+                    <div class="mt-2 flex items-center gap-2">
+                      <select id="videoFolderFilter" class="flex-1 bg-dark-800 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-gray-700">
+                        <option value="all">All folders</option>
+                        <option value="unassigned">Unsorted</option>
+                        <% (folders || []).forEach(function(folder) { %>
+                          <option value="<%= folder.id %>"><%= folder.name %></option>
+                        <% }); %>
+                      </select>
+                      <button type="button" onclick="addFolderVideos()" class="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-gray-200 rounded-lg text-xs flex items-center gap-1">
+                        <i class="ti ti-folder"></i>
+                        <span>Add folder</span>
+                      </button>
+                    </div>
                   </div>
                   <div id="availableVideos" class="p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
                     <% if (videos && videos.length > 0) { %>
@@ -200,6 +213,10 @@
                           <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-white truncate"><%= video.title %></p>
                             <p class="text-xs text-gray-400"><%= video.duration ? Math.floor(video.duration / 60) + ':' + String(Math.floor(video.duration % 60)).padStart(2, '0') : '0:00' %></p>
+                            <p class="text-xs text-gray-500 flex items-center gap-1">
+                              <i class="ti ti-folder text-xs"></i>
+                              <span class="truncate"><%= video.folder_name || 'Unsorted' %></span>
+                            </p>
                           </div>
                           <i class="ti ti-plus text-gray-400"></i>
                         </button>
@@ -245,6 +262,19 @@
                         class="w-full bg-dark-800 text-white pl-8 pr-4 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-gray-700">
                       <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                     </div>
+                    <div class="mt-2 flex items-center gap-2">
+                      <select id="audioFolderFilter" class="flex-1 bg-dark-800 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-primary border border-gray-700">
+                        <option value="all">All folders</option>
+                        <option value="unassigned">Unsorted</option>
+                        <% (folders || []).forEach(function(folder) { %>
+                          <option value="<%= folder.id %>"><%= folder.name %></option>
+                        <% }); %>
+                      </select>
+                      <button type="button" onclick="addFolderAudios()" class="px-3 py-2 bg-dark-700 hover:bg-dark-600 text-gray-200 rounded-lg text-xs flex items-center gap-1">
+                        <i class="ti ti-folder"></i>
+                        <span>Add folder</span>
+                      </button>
+                    </div>
                   </div>
                   <div id="availableAudios" class="p-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
                     <% if (audios && audios.length > 0) { %>
@@ -257,6 +287,10 @@
                           <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-white truncate"><%= audio.title %></p>
                             <p class="text-xs text-gray-400"><%= audio.duration ? Math.floor(audio.duration / 60) + ':' + String(Math.floor(audio.duration % 60)).padStart(2, '0') : '0:00' %></p>
+                            <p class="text-xs text-gray-500 flex items-center gap-1">
+                              <i class="ti ti-folder text-xs"></i>
+                              <span class="truncate"><%= audio.folder_name || 'Unsorted' %></span>
+                            </p>
                           </div>
                           <i class="ti ti-plus text-gray-400"></i>
                         </button>
@@ -362,6 +396,12 @@ let allVideos = <%- JSON.stringify(videos || []) %>;
 let allAudios = <%- JSON.stringify(audios || []) %>;
 let currentTab = 'videos';
 
+function matchesFolder(item, folderValue) {
+  if (folderValue === 'all') return true;
+  if (folderValue === 'unassigned') return !item.folder_id;
+  return item.folder_id === folderValue;
+}
+
 function switchTab(tab) {
   currentTab = tab;
   const videosTab = document.getElementById('videosTab');
@@ -460,6 +500,24 @@ function addVideoToPlaylist(videoId) {
   }
 }
 
+function addFolderVideos() {
+  const folderValue = document.getElementById('videoFolderFilter')?.value || 'all';
+  if (folderValue === 'all') {
+    showToast('Please select a folder to add', 'error');
+    return;
+  }
+  const existingIds = new Set(selectedVideos.map(v => v.id));
+  const toAdd = allVideos.filter(video => matchesFolder(video, folderValue) && !existingIds.has(video.id));
+  if (toAdd.length === 0) {
+    showToast('No new videos found in this folder', 'info');
+    return;
+  }
+  selectedVideos = [...selectedVideos, ...toAdd];
+  updateSelectedVideosDisplay();
+  updateAvailableVideosDisplay();
+  updateBadges();
+}
+
 function removeVideoFromPlaylist(videoId) {
   selectedVideos = selectedVideos.filter(v => v.id != videoId);
   updateSelectedVideosDisplay();
@@ -482,6 +540,24 @@ function addAudioToPlaylist(audioId) {
     updateAvailableAudiosDisplay();
     updateBadges();
   }
+}
+
+function addFolderAudios() {
+  const folderValue = document.getElementById('audioFolderFilter')?.value || 'all';
+  if (folderValue === 'all') {
+    showToast('Please select a folder to add', 'error');
+    return;
+  }
+  const existingIds = new Set(selectedAudios.map(a => a.id));
+  const toAdd = allAudios.filter(audio => matchesFolder(audio, folderValue) && !existingIds.has(audio.id));
+  if (toAdd.length === 0) {
+    showToast('No new audio files found in this folder', 'info');
+    return;
+  }
+  selectedAudios = [...selectedAudios, ...toAdd];
+  updateSelectedAudiosDisplay();
+  updateAvailableAudiosDisplay();
+  updateBadges();
 }
 
 function removeAudioFromPlaylist(audioId) {
@@ -513,8 +589,11 @@ function updateSelectedVideosDisplay() {
 function updateAvailableVideosDisplay() {
   const container = document.getElementById('availableVideos');
   const searchTerm = document.getElementById('searchVideos')?.value?.toLowerCase() || '';
+  const folderValue = document.getElementById('videoFolderFilter')?.value || 'all';
   const selectedIds = selectedVideos.map(v => v.id);
-  const available = allVideos.filter(v => !selectedIds.includes(v.id) && v.title.toLowerCase().includes(searchTerm));
+  const available = allVideos.filter(v => !selectedIds.includes(v.id)
+    && v.title.toLowerCase().includes(searchTerm)
+    && matchesFolder(v, folderValue));
   
   if (available.length === 0) {
     container.innerHTML = `<div class="text-center py-8 text-gray-400">
@@ -531,6 +610,10 @@ function updateAvailableVideosDisplay() {
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">${video.title}</p>
           <p class="text-xs text-gray-400">${formatDuration(video.duration)}</p>
+          <p class="text-xs text-gray-500 flex items-center gap-1">
+            <i class="ti ti-folder text-xs"></i>
+            <span class="truncate">${video.folder_name || 'Unsorted'}</span>
+          </p>
         </div>
         <i class="ti ti-plus text-gray-400"></i>
       </button>
@@ -546,8 +629,11 @@ function updateSelectedAudiosDisplay() {
 function updateAvailableAudiosDisplay() {
   const container = document.getElementById('availableAudios');
   const searchTerm = document.getElementById('searchAudios')?.value?.toLowerCase() || '';
+  const folderValue = document.getElementById('audioFolderFilter')?.value || 'all';
   const selectedIds = selectedAudios.map(a => a.id);
-  const available = allAudios.filter(a => !selectedIds.includes(a.id) && a.title.toLowerCase().includes(searchTerm));
+  const available = allAudios.filter(a => !selectedIds.includes(a.id)
+    && a.title.toLowerCase().includes(searchTerm)
+    && matchesFolder(a, folderValue));
   
   if (available.length === 0) {
     if (allAudios.length === 0) {
@@ -572,6 +658,10 @@ function updateAvailableAudiosDisplay() {
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-white truncate">${audio.title}</p>
           <p class="text-xs text-gray-400">${formatDuration(audio.duration)}</p>
+          <p class="text-xs text-gray-500 flex items-center gap-1">
+            <i class="ti ti-folder text-xs"></i>
+            <span class="truncate">${audio.folder_name || 'Unsorted'}</span>
+          </p>
         </div>
         <i class="ti ti-plus text-gray-400"></i>
       </button>
@@ -752,6 +842,8 @@ function submitPlaylist() {
 
 document.getElementById('searchVideos').addEventListener('input', updateAvailableVideosDisplay);
 document.getElementById('searchAudios').addEventListener('input', updateAvailableAudiosDisplay);
+document.getElementById('videoFolderFilter').addEventListener('change', updateAvailableVideosDisplay);
+document.getElementById('audioFolderFilter').addEventListener('change', updateAvailableAudiosDisplay);
 
 function showToast(message, type = 'info') {
   const toast = document.createElement('div');

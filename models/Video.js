@@ -10,12 +10,13 @@ class Video {
       db.run(
         `INSERT INTO videos (
           id, title, filepath, thumbnail_path, file_size, 
-          duration, format, resolution, bitrate, fps, user_id, 
-          created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          duration, format, resolution, bitrate, fps, user_id,
+          folder_id, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           id, data.title, data.filepath, data.thumbnail_path, data.file_size,
           data.duration, data.format, data.resolution, data.bitrate, data.fps, data.user_id,
+          data.folder_id || null,
           now, now
         ],
         function (err) {
@@ -42,8 +43,15 @@ class Video {
   static findAll(userId = null) {
     return new Promise((resolve, reject) => {
       const query = userId ?
-        'SELECT * FROM videos WHERE user_id = ? ORDER BY upload_date DESC' :
-        'SELECT * FROM videos ORDER BY upload_date DESC';
+        `SELECT v.*, mf.name AS folder_name
+         FROM videos v
+         LEFT JOIN media_folders mf ON v.folder_id = mf.id
+         WHERE v.user_id = ?
+         ORDER BY v.upload_date DESC` :
+        `SELECT v.*, mf.name AS folder_name
+         FROM videos v
+         LEFT JOIN media_folders mf ON v.folder_id = mf.id
+         ORDER BY v.upload_date DESC`;
       const params = userId ? [userId] : [];
       db.all(query, params, (err, rows) => {
         if (err) {
