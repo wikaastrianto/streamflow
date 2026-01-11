@@ -2,7 +2,7 @@
 
 set -e
 
-REPO_URL=${REPO_URL:-https://github.com/YOUR_GITHUB_USERNAME/streamflow}
+REPO_URL=${REPO_URL:-https://github.com/wikaastrianto/streamflow}
 REPO_DIR=${REPO_DIR:-streamflow}
 
 echo "================================"
