@@ -2,6 +2,9 @@
 
 set -e
 
+REPO_URL=${REPO_URL:-https://github.com/wikaastrianto/streamflow}
+REPO_DIR=${REPO_DIR:-streamflow}
+
 echo "================================"
 echo "   StreamFlow Quick Installer  "
 echo "================================"
@@ -47,8 +50,8 @@ else
 fi
 
 echo "📥 Clone repository..."
-git clone https://github.com/wikaastrianto/streamflow
-cd streamflow
+git clone "$REPO_URL" "$REPO_DIR"
+cd "$REPO_DIR"
 
 echo "⚙️ Installing dependencies..."
 npm install

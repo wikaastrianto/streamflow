@@ -271,6 +271,16 @@ function createTables() {
         FOREIGN KEY (video_id) REFERENCES videos(id)
       )`);
 
+      db.run(`CREATE TABLE IF NOT EXISTS rotation_schedules (
+        id TEXT PRIMARY KEY,
+        rotation_id TEXT NOT NULL,
+        order_index INTEGER NOT NULL,
+        start_time TEXT NOT NULL,
+        end_time TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (rotation_id) REFERENCES stream_rotations(id) ON DELETE CASCADE
+      )`);
+
       // Add start_time, end_time, and repeat_mode columns to stream_rotations table
       db.run(`ALTER TABLE stream_rotations ADD COLUMN start_time TEXT`, (err) => {
         if (err && !err.message.includes('duplicate column name')) {

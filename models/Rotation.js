@@ -79,7 +79,22 @@ class Rotation {
                 return reject(err);
               }
               rotation.items = items || [];
-              resolve(rotation);
+
+              db.all(
+                `SELECT id, rotation_id, order_index, start_time, end_time
+                 FROM rotation_schedules
+                 WHERE rotation_id = ?
+                 ORDER BY order_index ASC`,
+                [id],
+                (scheduleErr, schedules) => {
+                  if (scheduleErr) {
+                    console.error('Error finding rotation schedules:', scheduleErr.message);
+                    return reject(scheduleErr);
+                  }
+                  rotation.schedules = schedules || [];
+                  resolve(rotation);
+                }
+              );
             }
           );
         }
@@ -208,6 +223,43 @@ class Rotation {
     });
   }
 
+  static addSchedule(scheduleData) {
+    const id = uuidv4();
+    const {
+      rotation_id,
+      order_index,
+      start_time,
+      end_time
+    } = scheduleData;
+
+    return new Promise((resolve, reject) => {
+      db.run(
+        `INSERT INTO rotation_schedules (id, rotation_id, order_index, start_time, end_time)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id, rotation_id, order_index, start_time, end_time],
+        function(err) {
+          if (err) {
+            console.error('Error adding rotation schedule:', err.message);
+            return reject(err);
+          }
+          resolve({ id, ...scheduleData });
+        }
+      );
+    });
+  }
+
+  static deleteSchedules(rotationId) {
+    return new Promise((resolve, reject) => {
+      db.run('DELETE FROM rotation_schedules WHERE rotation_id = ?', [rotationId], function(err) {
+        if (err) {
+          console.error('Error deleting rotation schedules:', err.message);
+          return reject(err);
+        }
+        resolve({ success: true, deleted: this.changes > 0 });
+      });
+    });
+  }
+
   static updateItem(itemId, itemData) {
     const fields = [];
     const values = [];
@@ -323,6 +375,25 @@ class Rotation {
         (err, rows) => {
           if (err) {
             console.error('Error getting rotation items:', err.message);
+            return reject(err);
+          }
+          resolve(rows || []);
+        }
+      );
+    });
+  }
+
+  static getSchedules(rotationId) {
+    return new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, rotation_id, order_index, start_time, end_time
+         FROM rotation_schedules
+         WHERE rotation_id = ?
+         ORDER BY order_index ASC`,
+        [rotationId],
+        (err, rows) => {
+          if (err) {
+            console.error('Error getting rotation schedules:', err.message);
             return reject(err);
           }
           resolve(rows || []);

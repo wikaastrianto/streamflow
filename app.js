@@ -4132,27 +4132,41 @@ app.get('/api/rotations/:id', isAuthenticated, async (req, res) => {
 
 app.post('/api/rotations', isAuthenticated, uploadThumbnail.array('thumbnails'), async (req, res) => {
   try {
-    const { name, repeat_mode, start_time, end_time, items, youtube_channel_id } = req.body;
+    const { name, repeat_mode, schedules, items, youtube_channel_id } = req.body;
     
     const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+    const parsedSchedules = typeof schedules === 'string' ? JSON.parse(schedules) : schedules;
+
+    if (!parsedSchedules || parsedSchedules.length === 0) {
+      return res.status(400).json({ success: false, error: 'At least one schedule is required' });
+    }
     
     if (!name || !parsedItems || parsedItems.length === 0) {
       return res.status(400).json({ success: false, error: 'Name and at least one item are required' });
-    }
-    
-    if (!start_time || !end_time) {
-      return res.status(400).json({ success: false, error: 'Start time and end time are required' });
     }
     
     const rotation = await Rotation.create({
       user_id: req.session.userId,
       name,
       is_loop: true,
-      start_time,
-      end_time,
+      start_time: null,
+      end_time: null,
       repeat_mode: repeat_mode || 'daily',
       youtube_channel_id: youtube_channel_id || null
     });
+
+    for (let i = 0; i < parsedSchedules.length; i++) {
+      const schedule = parsedSchedules[i];
+      if (!schedule.start_time || !schedule.end_time) {
+        continue;
+      }
+      await Rotation.addSchedule({
+        rotation_id: rotation.id,
+        order_index: i,
+        start_time: schedule.start_time,
+        end_time: schedule.end_time
+      });
+    }
     
     const uploadedFiles = req.files || [];
     
@@ -4208,22 +4222,44 @@ app.put('/api/rotations/:id', isAuthenticated, uploadThumbnail.array('thumbnails
       return res.status(403).json({ success: false, error: 'Not authorized' });
     }
     
-    const { name, repeat_mode, start_time, end_time, items, youtube_channel_id } = req.body;
+    const { name, repeat_mode, schedules, items, youtube_channel_id } = req.body;
     
     const parsedItems = typeof items === 'string' ? JSON.parse(items) : items;
+    const parsedSchedules = typeof schedules === 'string' ? JSON.parse(schedules) : schedules;
     
-    await Rotation.update(req.params.id, {
+    const updateData = {
       name,
       is_loop: true,
-      start_time,
-      end_time,
       repeat_mode: repeat_mode || 'daily',
       youtube_channel_id: youtube_channel_id || null
-    });
+    };
+
+    if (rotation.status !== 'active') {
+      updateData.start_time = null;
+      updateData.end_time = null;
+    }
+
+    await Rotation.update(req.params.id, updateData);
     
     const existingItems = await Rotation.getItemsByRotationId(req.params.id);
     for (const item of existingItems) {
       await Rotation.deleteItem(item.id);
+    }
+
+    await Rotation.deleteSchedules(req.params.id);
+    if (parsedSchedules && parsedSchedules.length > 0) {
+      for (let i = 0; i < parsedSchedules.length; i++) {
+        const schedule = parsedSchedules[i];
+        if (!schedule.start_time || !schedule.end_time) {
+          continue;
+        }
+        await Rotation.addSchedule({
+          rotation_id: req.params.id,
+          order_index: i,
+          start_time: schedule.start_time,
+          end_time: schedule.end_time
+        });
+      }
     }
     
     const uploadedFiles = req.files || [];
