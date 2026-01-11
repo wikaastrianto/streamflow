@@ -111,6 +111,12 @@ class Rotation {
                  LEFT JOIN videos v ON ri.video_id = v.id 
                  WHERE ri.rotation_id = r.id 
                  ORDER BY ri.order_index ASC LIMIT 1) as first_thumbnail,
+                (SELECT start_time FROM rotation_schedules 
+                 WHERE rotation_id = r.id 
+                 ORDER BY order_index ASC LIMIT 1) as schedule_start_time,
+                (SELECT end_time FROM rotation_schedules 
+                 WHERE rotation_id = r.id 
+                 ORDER BY order_index ASC LIMIT 1) as schedule_end_time,
                 yc.channel_name as youtube_channel_name,
                 yc.channel_thumbnail as youtube_channel_thumbnail,
                 yc.channel_id as youtube_channel_external_id
