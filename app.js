@@ -29,6 +29,7 @@ const { ensureDirectories } = require('./utils/storage');
 const { getVideoInfo, generateThumbnail, generateImageThumbnail } = require('./utils/videoProcessor');
 const Video = require('./models/Video');
 const Playlist = require('./models/Playlist');
+const MediaFolder = require('./models/MediaFolder');
 const Stream = require('./models/Stream');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -53,6 +54,13 @@ const port = process.env.PORT || 7575;
 const tokens = new csrf();
 
 ensureDirectories();
+async function resolveFolderId(folderId, userId) {
+  if (!folderId) return null;
+  const folder = await MediaFolder.findById(folderId);
+  if (!folder || folder.user_id !== userId) return null;
+  return folderId;
+}
+
 app.locals.helpers = {
   getUsername: function (req) {
     if (req.session && req.session.username) {
@@ -708,15 +716,43 @@ app.get('/dashboard', isAuthenticated, async (req, res) => {
 app.get('/gallery', isAuthenticated, async (req, res) => {
   try {
     const videos = await Video.findAll(req.session.userId);
+    const folders = await MediaFolder.findAll(req.session.userId);
     res.render('gallery', {
       title: 'Video Gallery',
       active: 'gallery',
       user: await User.findById(req.session.userId),
-      videos: videos
+      videos: videos,
+      folders: folders
     });
   } catch (error) {
     console.error('Gallery error:', error);
     res.redirect('/dashboard');
+  }
+});
+
+app.get('/api/folders', isAuthenticated, async (req, res) => {
+  try {
+    const folders = await MediaFolder.findAll(req.session.userId);
+    res.json({ success: true, folders });
+  } catch (error) {
+    console.error('Error fetching folders:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch folders' });
+  }
+});
+
+app.post('/api/folders', isAuthenticated, [
+  body('name').trim().isLength({ min: 1 }).withMessage('Folder name is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: errors.array()[0].msg });
+    }
+    const folder = await MediaFolder.create({ name: req.body.name, user_id: req.session.userId });
+    res.json({ success: true, folder });
+  } catch (error) {
+    console.error('Error creating folder:', error);
+    res.status(500).json({ success: false, error: 'Failed to create folder' });
   }
 });
 app.get('/settings', isAuthenticated, async (req, res) => {
@@ -1467,6 +1503,7 @@ app.post('/upload/video', isAuthenticated, uploadVideo.single('video'), async (r
     if (mimetype === 'video/mp4') format = 'mp4';
     else if (mimetype === 'video/avi') format = 'avi';
     else if (mimetype === 'video/quicktime') format = 'mov';
+    const folderId = await resolveFolderId(req.body.folderId, req.session.userId);
     const videoData = {
       title: path.basename(originalname, path.extname(originalname)),
       original_filename: originalname,
@@ -1475,7 +1512,8 @@ app.post('/upload/video', isAuthenticated, uploadVideo.single('video'), async (r
       file_size: size,
       duration: videoInfo.duration,
       format: format,
-      user_id: req.session.userId
+      user_id: req.session.userId,
+      folder_id: folderId
     };
     const video = await Video.create(videoData);
     res.json({
@@ -1584,6 +1622,7 @@ app.post('/api/videos/upload', isAuthenticated, (req, res, next) => {
           })
           .on('end', async () => {
             try {
+              const folderId = await resolveFolderId(req.body.folderId, req.session.userId);
               const videoData = {
                 title,
                 filepath: filePath,
@@ -1594,7 +1633,8 @@ app.post('/api/videos/upload', isAuthenticated, (req, res, next) => {
                 resolution,
                 bitrate,
                 fps,
-                user_id: req.session.userId
+                user_id: req.session.userId,
+                folder_id: folderId
               };
               const video = await Video.create(videoData);
               res.json({
@@ -1689,6 +1729,7 @@ app.post('/api/audio/upload', isAuthenticated, (req, res, next) => {
     const audioInfo = await audioConverter.getAudioInfo(fullFilePath);
     const stats = fs.statSync(fullFilePath);
     const thumbnailPath = '/images/audio-thumbnail.png';
+    const folderId = await resolveFolderId(req.body.folderId, req.session.userId);
     const videoData = {
       title,
       filepath: filePath,
@@ -1699,7 +1740,8 @@ app.post('/api/audio/upload', isAuthenticated, (req, res, next) => {
       resolution: null,
       bitrate: audioInfo.bitrate,
       fps: null,
-      user_id: req.session.userId
+      user_id: req.session.userId,
+      folder_id: folderId
     };
     const video = await Video.create(videoData);
     res.json({
@@ -1719,7 +1761,7 @@ app.post('/api/audio/upload', isAuthenticated, (req, res, next) => {
 
 app.post('/api/videos/chunk/init', isAuthenticated, async (req, res) => {
   try {
-    const { filename, fileSize, totalChunks } = req.body;
+    const { filename, fileSize, totalChunks, folderId } = req.body;
     if (!filename || !fileSize || !totalChunks) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
@@ -1741,7 +1783,8 @@ app.post('/api/videos/chunk/init', isAuthenticated, async (req, res) => {
       }
     }
 
-    const info = await chunkUploadService.initUpload(filename, fileSize, totalChunks, req.session.userId);
+    const resolvedFolderId = await resolveFolderId(folderId, req.session.userId);
+    const info = await chunkUploadService.initUpload(filename, fileSize, totalChunks, req.session.userId, resolvedFolderId);
     res.json({ 
       success: true, 
       uploadId: info.uploadId, 
@@ -1854,7 +1897,8 @@ app.post('/api/videos/chunk/complete', isAuthenticated, async (req, res) => {
               resolution,
               bitrate,
               fps,
-              user_id: req.session.userId
+              user_id: req.session.userId,
+              folder_id: info.folderId || null
             });
           })
           .on('error', (err) => {
@@ -3748,6 +3792,7 @@ app.get('/playlist', isAuthenticated, async (req, res) => {
   try {
     const playlists = await Playlist.findAll(req.session.userId);
     const allVideos = await Video.findAll(req.session.userId);
+    const folders = await MediaFolder.findAll(req.session.userId);
     const videos = allVideos.filter(video => {
       const filepath = (video.filepath || '').toLowerCase();
       if (filepath.includes('/audio/')) return false;
@@ -3764,7 +3809,8 @@ app.get('/playlist', isAuthenticated, async (req, res) => {
       user: await User.findById(req.session.userId),
       playlists: playlists,
       videos: videos,
-      audios: audios
+      audios: audios,
+      folders: folders
     });
   } catch (error) {
     console.error('Playlist error:', error);
