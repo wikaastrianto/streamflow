@@ -46,7 +46,7 @@
 Untuk instalasi otomatis, jalankan perintah berikut:
 
 ```bash
-curl -o install.sh https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/streamflow/main/install.sh && chmod +x install.sh && ./install.sh
+curl -o install.sh https://raw.githubusercontent.com/wikaastrianto/streamflow/main/install.sh && chmod +x install.sh && ./install.sh
 ```
 
 ## 🔧 Manual Installation
@@ -308,7 +308,7 @@ pm2 restart streamflow
 
 ## 💫 Contributors
 
-[![Contributors](https://contrib.rocks/image?repo=YOUR_GITHUB_USERNAME/streamflow)](https://github.com/YOUR_GITHUB_USERNAME/streamflow/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=wikaastrianto/streamflow)](https://github.com/wikaastrianto/streamflow/graphs/contributors)
 
 ## 📄 License
 
@@ -316,6 +316,7 @@ pm2 restart streamflow
 
 ---
 © 2026 - StreamFlow Contributors
+
 
 
 
