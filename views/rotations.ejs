@@ -68,28 +68,34 @@
             <span class="text-[10px] text-gray-400"><%= rotation.item_count %> items</span>
           </div>
           <div class="flex items-center gap-1.5 mt-0.5">
-            <% if (rotation.start_time && rotation.end_time) { %>
-            <span class="text-[10px] text-yellow-500"><%= new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></span>
-            <span class="text-[10px] text-gray-500">→</span>
-            <span class="text-[10px] text-green-500"><%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></span>
-            <span class="text-gray-600 text-[10px]">•</span>
-            <% } else if (rotation.schedule_slots) { %>
-              <% const slots = rotation.schedule_slots.split(','); %>
-              <% slots.forEach((slot, idx) => { %>
-                <% const [start, end] = slot.split('|'); %>
-                <span class="text-[10px] text-yellow-500"><%= start %></span>
-                <span class="text-[10px] text-gray-500">→</span>
-                <span class="text-[10px] text-green-500"><%= end %></span>
-                <% if (idx < slots.length - 1) { %>
-                  <span class="text-[10px] text-gray-500">•</span>
-                <% } %>
-              <% }); %>
-              <span class="text-gray-600 text-[10px]">•</span>
-            <% } else if (rotation.schedule_start_time && rotation.schedule_end_time) { %>
-            <span class="text-[10px] text-yellow-500"><%= rotation.schedule_start_time %></span>
-            <span class="text-[10px] text-gray-500">→</span>
-            <span class="text-[10px] text-green-500"><%= rotation.schedule_end_time %></span>
-            <span class="text-gray-600 text-[10px]">•</span>
+            <%
+              const slots = rotation.schedule_slots ? rotation.schedule_slots.split(',').map(slot => slot.split('|')) : [];
+              const activeStart = rotation.start_time ? new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const activeEnd = rotation.end_time ? new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const hasActive = activeStart && activeEnd;
+              const primarySlot = hasActive ? [activeStart, activeEnd] : (slots[0] || (rotation.schedule_start_time && rotation.schedule_end_time ? [rotation.schedule_start_time, rotation.schedule_end_time] : null));
+              const totalSlots = slots.length;
+            %>
+            <% if (primarySlot) { %>
+              <span class="text-[10px] <%= hasActive ? 'text-yellow-400 font-semibold' : 'text-yellow-500' %>"><%= primarySlot[0] %></span>
+              <span class="text-[10px] text-gray-500">→</span>
+              <span class="text-[10px] <%= hasActive ? 'text-green-400 font-semibold' : 'text-green-500' %>"><%= primarySlot[1] %></span>
+            <% } %>
+            <% if (totalSlots > 1) { %>
+              <span class="text-[10px] text-gray-500">•</span>
+              <span class="schedule-more text-[10px] text-blue-300 relative">
+                +<%= totalSlots - 1 %> more
+                <span class="schedule-popover">
+                  <% slots.forEach((slot) => { %>
+                    <% const isActive = hasActive && slot[0] === activeStart && slot[1] === activeEnd; %>
+                    <div class="schedule-popover-row <%= isActive ? 'schedule-popover-active' : '' %>">
+                      <span class="text-yellow-500"><%= slot[0] %></span>
+                      <span class="text-gray-500">→</span>
+                      <span class="text-green-500"><%= slot[1] %></span>
+                    </div>
+                  <% }); %>
+                </span>
+              </span>
             <% } %>
             <% if (rotation.repeat_mode === 'daily') { %>
             <span class="text-[10px] text-blue-400">Daily</span>
@@ -207,21 +213,34 @@
             <% } %>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
-            <% if (rotation.start_time && rotation.end_time) { %>
-              <div class="text-xs text-yellow-500 font-medium">Start: <%= new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
-              <div class="text-xs text-green-500 font-medium">End: <%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
-            <% } else if (rotation.schedule_slots) { %>
-              <% const slots = rotation.schedule_slots.split(','); %>
-              <% slots.forEach((slot) => { %>
-                <% const [start, end] = slot.split('|'); %>
-                <div class="text-xs text-yellow-500 font-medium">Start: <%= start %></div>
-                <div class="text-xs text-green-500 font-medium">End: <%= end %></div>
-              <% }); %>
-            <% } else if (rotation.schedule_start_time && rotation.schedule_end_time) { %>
-              <div class="text-xs text-yellow-500 font-medium">Start: <%= rotation.schedule_start_time %></div>
-              <div class="text-xs text-green-500 font-medium">End: <%= rotation.schedule_end_time %></div>
+            <%
+              const tableSlots = rotation.schedule_slots ? rotation.schedule_slots.split(',').map(slot => slot.split('|')) : [];
+              const tableActiveStart = rotation.start_time ? new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const tableActiveEnd = rotation.end_time ? new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) : null;
+              const tableHasActive = tableActiveStart && tableActiveEnd;
+              const tablePrimary = tableHasActive ? [tableActiveStart, tableActiveEnd] : (tableSlots[0] || (rotation.schedule_start_time && rotation.schedule_end_time ? [rotation.schedule_start_time, rotation.schedule_end_time] : null));
+              const tableTotal = tableSlots.length;
+            %>
+            <% if (tablePrimary) { %>
+              <div class="text-xs text-yellow-500 font-medium">Start: <%= tablePrimary[0] %></div>
+              <div class="text-xs text-green-500 font-medium">End: <%= tablePrimary[1] %></div>
             <% } else { %>
               <div class="text-sm text-gray-400">--</div>
+            <% } %>
+            <% if (tableTotal > 1) { %>
+              <div class="schedule-more text-xs text-blue-300 relative inline-flex items-center gap-1 mt-1">
+                <span>+<%= tableTotal - 1 %> more</span>
+                <span class="schedule-popover">
+                  <% tableSlots.forEach((slot) => { %>
+                    <% const isActive = tableHasActive && slot[0] === tableActiveStart && slot[1] === tableActiveEnd; %>
+                    <div class="schedule-popover-row <%= isActive ? 'schedule-popover-active' : '' %>">
+                      <span class="text-yellow-500"><%= slot[0] %></span>
+                      <span class="text-gray-500">→</span>
+                      <span class="text-green-500"><%= slot[1] %></span>
+                    </div>
+                  <% }); %>
+                </span>
+              </div>
             <% } %>
           </td>
           <td class="px-6 py-4">
@@ -483,6 +502,40 @@
   background-color: rgba(59, 130, 246, 0.2);
   padding: 0 2px;
   border-radius: 2px;
+}
+.schedule-more {
+  cursor: pointer;
+}
+.schedule-popover {
+  position: absolute;
+  top: 1.2rem;
+  left: 0;
+  z-index: 40;
+  min-width: 140px;
+  padding: 6px 8px;
+  background: #111827;
+  border: 1px solid rgba(55, 65, 81, 0.8);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+}
+.schedule-more:hover .schedule-popover {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+.schedule-popover-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 2px 0;
+}
+.schedule-popover-active {
+  font-weight: 600;
 }
 </style>
 
