@@ -11,8 +11,8 @@ fs.ensureDirSync(TEMP_DIR);
 fs.ensureDirSync(INFO_DIR);
 fs.ensureDirSync(VIDEOS_DIR);
 
-function generateFileHash(filename, fileSize, userId) {
-  return crypto.createHash('md5').update(`${filename}-${fileSize}-${userId}`).digest('hex');
+function generateFileHash(filename, fileSize, userId, folderId = '') {
+  return crypto.createHash('md5').update(`${filename}-${fileSize}-${userId}-${folderId}`).digest('hex');
 }
 
 function getInfoPath(uploadId) {
@@ -23,8 +23,8 @@ function getChunkPath(uploadId, chunkIndex) {
   return path.join(TEMP_DIR, `${uploadId}_chunk_${chunkIndex}`);
 }
 
-async function findExistingUpload(filename, fileSize, userId) {
-  const fileHash = generateFileHash(filename, fileSize, userId);
+async function findExistingUpload(filename, fileSize, userId, folderId) {
+  const fileHash = generateFileHash(filename, fileSize, userId, folderId);
   const infoPath = getInfoPath(fileHash);
   if (await fs.pathExists(infoPath)) {
     const info = await fs.readJson(infoPath);
@@ -35,15 +35,15 @@ async function findExistingUpload(filename, fileSize, userId) {
   return null;
 }
 
-async function initUpload(filename, fileSize, totalChunks, userId) {
-  const existingUpload = await findExistingUpload(filename, fileSize, userId);
+async function initUpload(filename, fileSize, totalChunks, userId, folderId) {
+  const existingUpload = await findExistingUpload(filename, fileSize, userId, folderId);
   if (existingUpload) {
     existingUpload.status = 'uploading';
     existingUpload.lastActivity = Date.now();
     await fs.writeJson(getInfoPath(existingUpload.uploadId), existingUpload);
     return existingUpload;
   }
-  const uploadId = generateFileHash(filename, fileSize, userId);
+  const uploadId = generateFileHash(filename, fileSize, userId, folderId);
   const info = {
     uploadId,
     filename,
@@ -51,6 +51,7 @@ async function initUpload(filename, fileSize, totalChunks, userId) {
     totalChunks,
     uploadedChunks: [],
     userId,
+    folderId: folderId || null,
     createdAt: Date.now(),
     lastActivity: Date.now(),
     status: 'uploading'
