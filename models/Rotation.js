@@ -117,6 +117,10 @@ class Rotation {
                 (SELECT end_time FROM rotation_schedules 
                  WHERE rotation_id = r.id 
                  ORDER BY order_index ASC LIMIT 1) as schedule_end_time,
+                (SELECT GROUP_CONCAT(start_time || '|' || end_time, ',')
+                 FROM rotation_schedules
+                 WHERE rotation_id = r.id
+                 ORDER BY order_index ASC) as schedule_slots,
                 yc.channel_name as youtube_channel_name,
                 yc.channel_thumbnail as youtube_channel_thumbnail,
                 yc.channel_id as youtube_channel_external_id

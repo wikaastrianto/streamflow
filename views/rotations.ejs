@@ -73,6 +73,18 @@
             <span class="text-[10px] text-gray-500">→</span>
             <span class="text-[10px] text-green-500"><%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></span>
             <span class="text-gray-600 text-[10px]">•</span>
+            <% } else if (rotation.schedule_slots) { %>
+              <% const slots = rotation.schedule_slots.split(','); %>
+              <% slots.forEach((slot, idx) => { %>
+                <% const [start, end] = slot.split('|'); %>
+                <span class="text-[10px] text-yellow-500"><%= start %></span>
+                <span class="text-[10px] text-gray-500">→</span>
+                <span class="text-[10px] text-green-500"><%= end %></span>
+                <% if (idx < slots.length - 1) { %>
+                  <span class="text-[10px] text-gray-500">•</span>
+                <% } %>
+              <% }); %>
+              <span class="text-gray-600 text-[10px]">•</span>
             <% } else if (rotation.schedule_start_time && rotation.schedule_end_time) { %>
             <span class="text-[10px] text-yellow-500"><%= rotation.schedule_start_time %></span>
             <span class="text-[10px] text-gray-500">→</span>
@@ -198,6 +210,13 @@
             <% if (rotation.start_time && rotation.end_time) { %>
               <div class="text-xs text-yellow-500 font-medium">Start: <%= new Date(rotation.start_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
               <div class="text-xs text-green-500 font-medium">End: <%= new Date(rotation.end_time).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false}) %></div>
+            <% } else if (rotation.schedule_slots) { %>
+              <% const slots = rotation.schedule_slots.split(','); %>
+              <% slots.forEach((slot) => { %>
+                <% const [start, end] = slot.split('|'); %>
+                <div class="text-xs text-yellow-500 font-medium">Start: <%= start %></div>
+                <div class="text-xs text-green-500 font-medium">End: <%= end %></div>
+              <% }); %>
             <% } else if (rotation.schedule_start_time && rotation.schedule_end_time) { %>
               <div class="text-xs text-yellow-500 font-medium">Start: <%= rotation.schedule_start_time %></div>
               <div class="text-xs text-green-500 font-medium">End: <%= rotation.schedule_end_time %></div>
