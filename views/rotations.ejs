@@ -156,7 +156,7 @@
   <% }); %>
 </div>
 <div class="hidden md:block bg-gray-800 rounded-lg shadow-md overflow-hidden">
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto overflow-y-visible">
     <table class="min-w-full">
       <thead class="bg-gray-700 sticky top-0 z-9">
         <tr>
@@ -477,6 +477,9 @@
 .overflow-x-auto {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+.overflow-x-auto {
+  overflow-y: visible;
 }
 .modal-overlay::-webkit-scrollbar,
 .overflow-y-auto::-webkit-scrollbar,
