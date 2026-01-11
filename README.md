@@ -4,11 +4,11 @@
 
 ## StreamFlow: Web-Based Multi-Platform Streaming
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/YOUR_GITHUB_USERNAME/streamflow/releases)
+[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/wikaastrianto/streamflow/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![GitHub Stars](https://img.shields.io/github/stars/YOUR_GITHUB_USERNAME/streamflow?style=social)](https://github.com/YOUR_GITHUB_USERNAME/streamflow/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/YOUR_GITHUB_USERNAME/streamflow?style=social)](https://github.com/YOUR_GITHUB_USERNAME/streamflow/network/members)
+[![GitHub Stars](https://img.shields.io/github/stars/wikaastrianto/streamflow?style=social)](https://github.com/wikaastrianto/streamflow/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/wikaastrianto/streamflow?style=social)](https://github.com/wikaastrianto/streamflow/network/members)
 
 **StreamFlow** adalah platform live streaming berbasis web yang powerful dan mudah digunakan. Streaming ke YouTube, Facebook, dan platform RTMP lainnya secara bersamaan dengan satu aplikasi. Dilengkapi dengan video management, scheduled streaming, dan real-time monitoring untuk pengalaman streaming yang profesional.
 
@@ -89,7 +89,7 @@ sudo apt install git -y
 
 Clone repository:
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/streamflow
+git clone https://github.com/wikaastrianto/streamflow
 ```
 
 Masuk ke direktori project:
@@ -316,5 +316,6 @@ pm2 restart streamflow
 
 ---
 © 2026 - StreamFlow Contributors
+
 
 
